@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+smartattend.db
+instance/
+static/uploads/*
+.env
