@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance — SmartAttend{% endblock %}
+{% block page_title %}Mark Attendance{% endblock %}
+{% block content %}
+<style>
+.step-bar{display:flex;align-items:center;gap:0;margin-bottom:28px}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2)}
+.step.active{color:var(--brand)}
+.step.done{color:var(--green)}
+.step-num{width:28px;height:28px;border-radius:50%;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.step.done .step-num{background:rgba(67,233,123,.15)}
+.step.active .step-num{background:rgba(108,99,255,.15)}
+.step-line{flex:1;height:1px;background:var(--b0);margin:0 8px}
+.result-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--b0);margin-bottom:8px;background:var(--glass);transition:border-color .2s}
+.result-row.present{border-color:rgba(67,233,123,.25);background:rgba(67,233,123,.04)}
+.result-row.absent{border-color:rgba(255,107,107,.2);background:rgba(255,107,107,.03)}
+.conf-bar{width:60px;height:4px;border-radius:2px;background:var(--b0)}
+.conf-fill{height:100%;border-radius:2px;background:var(--green)}
+</style>
+
+{% if session_results %}
+<!-- RESULTS VIEW -->
+<div style="margin-bottom:20px">
+  <div style="font-size:12px;color:var(--t2);margin-bottom:8px;font-family:var(--fm)">ATTENDANCE RESULTS</div>
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-family:var(--fd);font-size:24px;font-weight:800">
+      {% set pcount = session_results|selectattr('status','equalto','present')|list|length %}
+      {{ pcount }}<span style="color:var(--t2);font-size:14px;font-weight:400">/{{ session_results|length }}</span>
+    </div>
+    <span class="badge bag">{{ pcount }} Present</span>
+    <span class="badge bar">{{ session_results|length - pcount }} Absent</span>
+    <span style="font-size:12px;color:var(--t2)">{{ att_date }} · {{ time_slot }}</span>
+  </div>
+</div>
+
+<form method="POST">
+  <input type="hidden" name="action" value="save">
+  <input type="hidden" name="subject_id" value="{{ subject_id }}">
+  <input type="hidden" name="att_date" value="{{ att_date }}">
+  <input type="hidden" name="time_slot" value="{{ time_slot }}">
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="c-hd">
+      <div class="c-title">Detection Results <span style="font-size:12px;font-weight:400;color:var(--t1)">— Override any status before saving</span></div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn bg btn-sm" onclick="setAll('present')"><i class="fas fa-check-double"></i> All Present</button>
+        <button type="button" class="btn bd btn-sm" onclick="setAll('absent')"><i class="fas fa-xmark"></i> All Absent</button>
+      </div>
+    </div>
+    {% for r in session_results %}
+    <div class="result-row {{ r.status }}" id="row-{{ loop.index0 }}">
+      <div style="width:36px;height:36px;border-radius:9px;background:{{ 'rgba(67,233,123,.12)' if r.status == 'present' else 'rgba(255,107,107,.1)' }};display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:12px;font-weight:700;color:{{ 'var(--green)' if r.status == 'present' else 'var(--red)' }};flex-shrink:0">
+        {{ r.student.name[:2].upper() }}
+      </div>
+      <input type="hidden" name="student_ids" value="{{ r.student.id }}">
+      <div style="flex:1">
+        <div style="font-size:13.5px;font-weight:600;color:var(--t0)">{{ r.student.name }}</div>
+        <div style="font-size:11.5px;color:var(--t2);font-family:var(--fm)">{{ r.student.student_id }}</div>
+      </div>
+      {% if r.confidence > 0 %}
+      <div style="text-align:center;margin-right:10px">
+        <div class="conf-bar"><div class="conf-fill" style="width:{{ (r.confidence * 100)|int }}%"></div></div>
+        <div style="font-size:10px;color:var(--t2);margin-top:3px;font-family:var(--fm)">{{ '%.0f'|format(r.confidence * 100) }}% conf</div>
+      </div>
+      {% endif %}
+      <select name="statuses" class="fc" style="width:110px;padding:6px 10px;font-size:13px" onchange="updateRow({{ loop.index0 }}, this.value)">
+        <option value="present" {% if r.status == 'present' %}selected{% endif %}>✓ Present</option>
+        <option value="absent" {% if r.status == 'absent' %}selected{% endif %}>✗ Absent</option>
+      </select>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex;gap:10px;justify-content:flex-end">
+    <a href="{{ url_for('teacher.mark_attendance') }}" class="btn bs">Start Over</a>
+    <button type="submit" class="btn bp btn-lg"><i class="fas fa-floppy-disk"></i> Save Attendance</button>
+  </div>
+</form>
+
+<script>
+function updateRow(i, val) {
+  const row = document.getElementById('row-'+i);
+  row.className = 'result-row ' + val;
+  const av = row.querySelector('[style*="border-radius:9px"]');
+  if(val === 'present') {
+    row.style.borderColor = 'rgba(67,233,123,.25)'; row.style.background = 'rgba(67,233,123,.04)';
+    if(av){av.style.background='rgba(67,233,123,.12)';av.style.color='var(--green)'}
+  } else {
+    row.style.borderColor = 'rgba(255,107,107,.2)'; row.style.background = 'rgba(255,107,107,.03)';
+    if(av){av.style.background='rgba(255,107,107,.1)';av.style.color='var(--red)'}
+  }
+}
+function setAll(val) {
+  document.querySelectorAll('select[name=statuses]').forEach((sel, i) => { sel.value = val; updateRow(i, val); });
+}
+</script>
+
+{% else %}
+<!-- FORM VIEW -->
+<div class="step-bar">
+  <div class="step active"><div class="step-num">1</div><span>Select Details</span></div>
+  <div class="step-line"></div>
+  <div class="step"><div class="step-num">2</div><span>Upload Photo</span></div>
+  <div class="step-line"></div>
+  <div class="step"><div class="step-num">3</div><span>Review & Save</span></div>
+</div>
+
+<div class="g2">
+  <form method="POST" enctype="multipart/form-data" id="att-form">
+    <input type="hidden" name="action" value="process">
+    <div class="card">
+      <div class="c-hd"><div class="c-title">Session Details</div></div>
+
+      {% if not subjects %}
+      <div class="al al-err"><i class="fas fa-circle-xmark"></i>No subjects assigned. Contact admin for access.</div>
+      {% else %}
+      <div class="fg">
+        <label class="fl">Subject</label>
+        <select name="subject_id" class="fc" required>
+          <option value="">Select Subject</option>
+          {% for s in subjects %}<option value="{{ s.id }}">{{ s.name }} ({{ s.code }}) — {{ s.class_ref.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="g2">
+        <div class="fg"><label class="fl">Date</label><input type="date" name="att_date" class="fc" value="{{ today }}" required></div>
+        <div class="fg"><label class="fl">Time Slot</label><input type="text" name="time_slot" class="fc" placeholder="10:00-11:00"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="c-hd">
+        <div class="c-title">Classroom Photos</div>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn bs btn-sm" onclick="toggleCamera()"><i class="fas fa-camera"></i> Camera</button>
+        </div>
+      </div>
+      <div class="fdrop" id="photo-zone" style="margin-bottom:14px">
+        <input type="file" name="photos" id="photo-input" multiple accept="image/*" style="display:none">
+        <i class="fas fa-cloud-arrow-up" style="font-size:32px;color:var(--t2);margin-bottom:12px;display:block"></i>
+        <div data-label style="font-size:14px;color:var(--t1);font-weight:500">Drop photos here or click to browse</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:6px">JPG, PNG, WEBP · Multiple photos = higher accuracy</div>
+      </div>
+
+      <!-- Camera capture section -->
+      <div id="camera-section" style="display:none;margin-bottom:14px">
+        <video id="cam-video" autoplay style="width:100%;border-radius:10px;border:1px solid var(--b1);max-height:260px;object-fit:cover"></video>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button type="button" class="btn bp" style="flex:1;justify-content:center" onclick="captureFrame()"><i class="fas fa-camera"></i> Capture</button>
+          <button type="button" class="btn bd btn-sm" onclick="stopCamera()"><i class="fas fa-stop"></i></button>
+        </div>
+        <canvas id="cam-canvas" style="display:none"></canvas>
+      </div>
+
+      <div id="preview-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+
+      <div style="background:rgba(108,99,255,.06);border:1px solid rgba(108,99,255,.15);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--t1)">
+        <i class="fas fa-lightbulb" style="color:var(--gold);margin-right:6px"></i>
+        <strong style="color:var(--t0)">Tip:</strong> Upload photos from different angles. A student detected in <em>any</em> photo will be marked present.
+      </div>
+
+      {% if subjects %}
+      <button type="submit" class="btn bp btn-lg" style="width:100%;justify-content:center;margin-top:16px">
+        <i class="fas fa-brain"></i> Detect & Mark Attendance
+      </button>
+      {% endif %}
+    </div>
+  </form>
+
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="c-title" style="margin-bottom:14px">How It Works</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        {% for step in [('1','fas fa-upload','Upload Photo','Take a photo of your classroom or upload one','var(--brand)'),('2','fas fa-eye','Face Detection','YOLOv8 detects every face in the image','var(--green)'),('3','fas fa-fingerprint','Recognition','DeepFace matches faces to student database','var(--gold)'),('4','fas fa-check-circle','Mark Attendance','Present/Absent auto-assigned with confidence scores','var(--cyan)')] %}
+        <div style="display:flex;gap:11px;align-items:flex-start">
+          <div style="width:28px;height:28px;border-radius:50%;background:rgba(108,99,255,.12);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--brand);flex-shrink:0">{{ step[0] }}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--t0)"><i class="{{step[1]}}" style="color:{{step[4]}};margin-right:6px;font-size:11px"></i>{{ step[2] }}</div>
+            <div style="font-size:12px;color:var(--t1);margin-top:2px">{{ step[3] }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="c-title" style="margin-bottom:14px">Multi-Photo Detection</div>
+      <div style="font-size:12.5px;color:var(--t1);line-height:1.8">
+        <div style="margin-bottom:6px"><i class="fas fa-circle" style="font-size:5px;color:var(--brand);margin-right:7px"></i>YOLO scans <strong style="color:var(--t0)">every photo</strong> for faces</div>
+        <div style="margin-bottom:6px"><i class="fas fa-circle" style="font-size:5px;color:var(--brand);margin-right:7px"></i>Each face matched against training images</div>
+        <div style="margin-bottom:6px"><i class="fas fa-circle" style="font-size:5px;color:var(--brand);margin-right:7px"></i>Student detected in <strong style="color:var(--green)">any</strong> photo = Present</div>
+        <div style="margin-bottom:6px"><i class="fas fa-circle" style="font-size:5px;color:var(--brand);margin-right:7px"></i>Highest confidence match kept per student</div>
+        <div><i class="fas fa-circle" style="font-size:5px;color:var(--red);margin-right:7px"></i>Not detected in any photo = Absent</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Set today's date
+document.querySelector('input[name=att_date]').value = new Date().toISOString().split('T')[0];
+
+// Preview selected images
+document.getElementById('photo-input').addEventListener('change', function() {
+  const grid = document.getElementById('preview-grid');
+  grid.innerHTML = '';
+  Array.from(this.files).forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--b1)';
+      grid.appendChild(img);
+    };
+    reader.readAsDataURL(f);
+  });
+  const lbl = document.querySelector('#photo-zone [data-label]');
+  if(lbl) lbl.textContent = this.files.length + ' photo(s) selected';
+});
+
+let stream = null;
+const capturedFiles = [];
+
+async function toggleCamera() {
+  const sec = document.getElementById('camera-section');
+  if(sec.style.display === 'none') {
+    sec.style.display = 'block';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      document.getElementById('cam-video').srcObject = stream;
+    } catch(e) { alert('Camera access denied or not available'); sec.style.display = 'none'; }
+  } else { stopCamera(); }
+}
+
+function stopCamera() {
+  if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('camera-section').style.display = 'none';
+}
+
+function captureFrame() {
+  const video = document.getElementById('cam-video');
+  const canvas = document.getElementById('cam-canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
+    const file = new File([blob], `capture_${Date.now()}.jpg`, {type:'image/jpeg'});
+    capturedFiles.push(file);
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(blob);
+    img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--green)';
+    document.getElementById('preview-grid').appendChild(img);
+    injectCapturedFiles();
+  }, 'image/jpeg', 0.9);
+}
+
+function injectCapturedFiles() {
+  const dt = new DataTransfer();
+  const existing = document.getElementById('photo-input').files;
+  Array.from(existing).forEach(f => dt.items.add(f));
+  capturedFiles.forEach(f => dt.items.add(f));
+  document.getElementById('photo-input').files = dt.files;
+}
+
+// Loading state on submit
+document.getElementById('att-form').addEventListener('submit', function() {
+  const btn = this.querySelector('button[type=submit]');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing faces...';
+  btn.disabled = true;
+});
+</script>
+{% endif %}
+{% endblock %}
