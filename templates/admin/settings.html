@@ -54,10 +54,7 @@
     </div>
     <div class="s-item">
       <span class="s-label">Real-time Notifications</span>
-      <label class="switch">
-        <input type="checkbox" checked>
-        <span class="slider"></span>
-      </label>
+      <span style="font-size:11px; color:var(--t2); font-weight:600;">Coming Soon</span>
     </div>
   </div>
 
@@ -68,18 +65,15 @@
     
     <div class="s-item">
       <span class="s-label">Clear System Logs</span>
-      <button class="btn-settings" onclick="alert('Logs cleared successfully.')">Execute</button>
+      <form action="{{ url_for('admin.settings') }}" method="POST" style="margin:0;"><input type="hidden" name="action" value="clear_logs"><button type="submit" class="btn-settings" onclick="return confirm('Clear all system logs?')">Execute</button></form>
     </div>
     <div class="s-item">
       <span class="s-label">Backup Database</span>
-      <button class="btn-settings" onclick="alert('Backup initiated. Check downloads.')">Download .db</button>
+      <a href="{{ url_for('admin.settings') }}?action=backup" class="btn-settings" style="text-decoration:none;">Download .db</a>
     </div>
     <div class="s-item">
       <span class="s-label">Maintenance Mode</span>
-      <label class="switch">
-        <input type="checkbox">
-        <span class="slider"></span>
-      </label>
+      <span style="font-size:11px; color:var(--t2); font-weight:600;">Coming Soon</span>
     </div>
   </div>
 
@@ -90,18 +84,15 @@
     
     <div class="s-item">
       <span class="s-label">Matching Threshold</span>
-      <span style="font-weight:700; color:var(--brand);">0.65</span>
+      <span style="font-weight:700; color:var(--brand);">60%</span>
     </div>
     <div class="s-item">
       <span class="s-label">Anti-Spoofing</span>
-      <label class="switch">
-        <input type="checkbox" checked>
-        <span class="slider"></span>
-      </label>
+      <span style="font-size:11px; color:var(--green); font-weight:600;"><i class="fas fa-check-circle" style="margin-right:4px;"></i>Enabled</span>
     </div>
     <div class="s-item">
       <span class="s-label">Auto-Cleanup Photos</span>
-      <button class="btn-settings">Purge Cache</button>
+      <span style="font-size:11px; color:var(--t2); font-weight:600;">Auto-managed</span>
     </div>
   </div>
 </div>

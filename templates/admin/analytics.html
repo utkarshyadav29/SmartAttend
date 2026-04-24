@@ -300,8 +300,8 @@ function initBarChart() {
       datasets: [{
         label: 'Avg %',
         data: divAttendance,
-        backgroundColor: 'rgba(91,45,142,0.1)',
-        hoverBackgroundColor: 'var(--brand)', /* Deep purple to simulate selection hover */
+        backgroundColor: 'rgba(28,59,120,0.55)',
+        hoverBackgroundColor: '#0F204C',
         borderSkipped: false,
         borderRadius: 4,
         barPercentage: 0.25
@@ -328,7 +328,7 @@ function initBarChart() {
           const division = barChartInstance.data.labels[index];
           
           // Highlight logic
-          const bgColors = barChartInstance.data.datasets[0].data.map((_, i) => i === index ? 'var(--brand)' : 'rgba(91,45,142,0.1)');
+          const bgColors = barChartInstance.data.datasets[0].data.map((_, i) => i === index ? '#0F204C' : 'rgba(28,59,120,0.55)');
           barChartInstance.data.datasets[0].backgroundColor = bgColors;
           barChartInstance.update();
 
@@ -400,9 +400,8 @@ function renderDonutChart(divisionName) {
 }
 
 function refreshCharts() {
-  // Update mock logic
   // Resets chart selection entirely to waiting mode
-  barChartInstance.data.datasets[0].backgroundColor = 'rgba(91,45,142,0.1)';
+  barChartInstance.data.datasets[0].backgroundColor = 'rgba(28,59,120,0.55)';
   barChartInstance.update();
   
   document.getElementById('noDataMsg').style.display = 'block';

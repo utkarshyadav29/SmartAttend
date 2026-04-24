@@ -36,6 +36,7 @@ class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), unique=True, nullable=False)
+    year = db.Column(db.Integer, default=1)  # 1=FY, 2=SY, 3=TY, 4=BTech
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     classes = db.relationship('Class', backref='department', lazy=True, cascade="all, delete-orphan")
 
@@ -75,6 +76,7 @@ class Student(db.Model):
     __tablename__ = 'students'
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(30), unique=True, nullable=False)
+    roll_number = db.Column(db.String(20))
     name = db.Column(db.String(120), nullable=False)
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     email = db.Column(db.String(120))
@@ -109,7 +111,9 @@ class AttendanceRecord(db.Model):
     status = db.Column(db.String(10), nullable=False)  # 'present' or 'absent'
     marked_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     ai_confidence = db.Column(db.Float)  # confidence score from AI
+    method = db.Column(db.String(20)) # 'yolo', 'manual', etc.
     is_manual_override = db.Column(db.Boolean, default=False)
+    is_finalized = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     discrepancy_reports = db.relationship('DiscrepancyReport', backref='attendance', lazy=True, cascade="all, delete-orphan")
 

@@ -1,50 +1,102 @@
 import os
 import json
 import numpy as np
+import traceback
 
-def detect_and_encode_faces(image_path):
+# Cache models at module level to avoid reloading on every call
+_yolo_model = None
+
+def _get_yolo_model():
+    """Lazy-load and cache YOLO model for reuse across calls."""
+    global _yolo_model
+    if _yolo_model is None:
+        from ultralytics import YOLO
+        _yolo_model = YOLO('yolov8n.pt')
+    return _yolo_model
+
+
+def detect_and_encode_faces(image_path, deep_scan=False):
     """
-    Returns list of face encodings from an image.
-    Uses YOLOv8 for detection + DeepFace for encoding.
-    Falls back to mock data if models not installed.
+    Detect faces via YOLOv8 and encode with DeepFace/Facenet.
+    Processes faces sequentially to avoid TensorFlow thread-safety crashes.
     """
     try:
-        from ultralytics import YOLO
         from deepface import DeepFace
         import cv2
 
-        model = YOLO('yolov8n.pt')
+        model = _get_yolo_model()
         img = cv2.imread(image_path)
         if img is None:
+            print(f"[WARN] Could not read image: {image_path}")
             return []
 
-        results = model(img, conf=0.4, classes=[0])  # class 0 = person (use face model in prod)
+        # Downscale for faster detection if image is massive (>2000px)
+        h, w = img.shape[:2]
+        if w > 2000:
+            scale = 2000 / w
+            img_detect = cv2.resize(img, (0, 0), fx=scale, fy=scale)
+        else:
+            img_detect = img
+
+        conf_thresh = 0.15 if deep_scan else 0.25
+        results = model(img_detect, conf=conf_thresh, classes=[0], verbose=False)
+
+        boxes = results[0].boxes
+        print(f"YOLO found {len(boxes)} potential faces.")
+
+        # Scaling boxes back if we resized
+        orig_h, orig_w = img.shape[:2]
+        detect_h, detect_w = img_detect.shape[:2]
+
         encodings = []
-
-        for box in results[0].boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            face_crop = img[y1:y2, x1:x2]
-            if face_crop.size == 0:
-                continue
-            temp_path = f"/tmp/face_crop_{len(encodings)}.jpg"
-            cv2.imwrite(temp_path, face_crop)
+        for i, box in enumerate(boxes):
             try:
-                rep = DeepFace.represent(temp_path, model_name='Facenet', enforce_detection=False)
-                if rep:
-                    encodings.append(rep[0]['embedding'])
-            except:
-                pass
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                # Scale back to original coordinates
+                x1 = int(x1 * orig_w / detect_w)
+                x2 = int(x2 * orig_w / detect_w)
+                y1 = int(y1 * orig_h / detect_h)
+                y2 = int(y2 * orig_h / detect_h)
 
+                pad = 20 if deep_scan else 10
+                face_crop = img[max(0, y1 - pad):min(orig_h, y2 + pad),
+                                max(0, x1 - pad):min(orig_w, x2 + pad)]
+
+                # Skip tiny or empty crops (less than 30x30 pixels)
+                if face_crop.size == 0 or face_crop.shape[0] < 30 or face_crop.shape[1] < 30:
+                    print(f"  [SKIP] Face {i+1}: crop too small ({face_crop.shape})")
+                    continue
+
+                # Use opencv backend for face alignment — critical for matching
+                # stored encodings that were also generated with alignment
+                rep = DeepFace.represent(
+                    face_crop,
+                    model_name='Facenet',
+                    enforce_detection=False,
+                    detector_backend='opencv'
+                )
+                if rep and len(rep) > 0 and 'embedding' in rep[0]:
+                    encodings.append(rep[0]['embedding'])
+                    print(f"  [OK] Face {i+1}: encoded successfully")
+                else:
+                    print(f"  [SKIP] Face {i+1}: no embedding returned")
+            except Exception as e:
+                print(f"  [ERR] Face {i+1}: {str(e)}")
+                continue
+
+        print(f"Total encodings extracted: {len(encodings)}")
         return encodings
 
     except ImportError:
-        # Mock encoding for development without GPU/models
+        # Fallback for development without GPU/models
         import random
         random.seed(hash(image_path) % 1000)
         n = random.randint(1, 3)
         return [[random.gauss(0, 1) for _ in range(128)] for _ in range(n)]
+    except Exception as e:
+        print(f"[FATAL] detect_and_encode_faces error: {e}")
+        traceback.print_exc()
+        return []
 
 
 def match_face_to_students(face_encoding, students, threshold=0.6):
@@ -71,8 +123,8 @@ def match_face_to_students(face_encoding, students, threshold=0.6):
 
 
 def cosine_similarity(a, b):
-    a = np.array(a)
-    b = np.array(b)
+    a = np.array(a, dtype=np.float32)
+    b = np.array(b, dtype=np.float32)
     denom = np.linalg.norm(a) * np.linalg.norm(b)
     if denom == 0:
         return 0.0

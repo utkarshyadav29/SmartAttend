@@ -133,8 +133,8 @@ const chart = new Chart(ctx, {
   data:{
     labels:wdAll.map(d=>d.date),
     datasets:[
-      {label:'Present',data:wdAll.map(d=>d.present),borderColor:'var(--brand)',backgroundColor:'rgba(91,45,142,.1)',fill:true,tension:.4,pointBackgroundColor:'var(--brand)',pointRadius:4},
-      {label:'Absent',data:wdAll.map(d=>d.absent),borderColor:'var(--accent)',backgroundColor:'rgba(232,82,26,.06)',fill:true,tension:.4,pointBackgroundColor:'var(--accent)',pointRadius:4}
+      {label:'Present',data:wdAll.map(d=>d.present),borderColor:'#0F204C',backgroundColor:'rgba(15,32,76,.12)',fill:true,tension:.4,pointBackgroundColor:'#0F204C',pointRadius:4},
+      {label:'Absent',data:wdAll.map(d=>d.absent),borderColor:'#E1251B',backgroundColor:'rgba(225,37,27,.08)',fill:true,tension:.4,pointBackgroundColor:'#E1251B',pointRadius:4}
     ]
   },
   options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(91,45,142,.06)'},ticks:{color:'#8A7A9A',font:{size:11}}},y:{grid:{color:'rgba(91,45,142,.06)'},ticks:{color:'#8A7A9A',font:{size:11}},beginAtZero:true}},interaction:{intersect:false,mode:'index'}}

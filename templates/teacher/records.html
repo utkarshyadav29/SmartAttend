@@ -1,12 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Records & Export — SmartAttend{% endblock %}
-{% block page_title %}Records & Export{% endblock %}
-{% block topbar_actions %}
-<a href="{{ url_for('teacher.export_csv') }}{% if selected_subject %}?subject_id={{ selected_subject }}{% endif %}" class="btn bg btn-sm"><i class="fas fa-file-csv"></i> Export CSV</a>
-{% endblock %}
+{% block title %}Records & History — SmartAttend{% endblock %}
+{% block page_title %}Records & History{% endblock %}
+
 {% block content %}
 <!-- Filters -->
-<div class="card fu fu1" style="padding:14px 18px;margin-bottom:18px">
+<div class="card fu fu1" style="padding:14px 18px;margin-bottom:24px">
   <form method="GET" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
     <div>
       <label class="fl">Subject</label>
@@ -28,68 +26,117 @@
   </form>
 </div>
 
-<!-- Summary cards -->
-{% if records %}
-{% set total_students = records|length %}
-{% set good_att = records|selectattr('pct', 'ge', 75)|list|length %}
-{% set low_att = records|selectattr('pct', 'lt', 75)|list|length %}
-<div class="sg fu fu2">
-  <div class="sc"><div class="sc-glow" style="background:var(--brand)"></div><div class="sc-ico ip"><i class="fas fa-users"></i></div><div class="sc-val">{{ total_students }}</div><div class="sc-lbl">Students</div></div>
-  <div class="sc"><div class="sc-glow" style="background:var(--green)"></div><div class="sc-ico ig"><i class="fas fa-check"></i></div><div class="sc-val">{{ good_att }}</div><div class="sc-lbl">Above 75%</div></div>
-  <div class="sc"><div class="sc-glow" style="background:var(--red)"></div><div class="sc-ico ir"><i class="fas fa-triangle-exclamation"></i></div><div class="sc-val">{{ low_att }}</div><div class="sc-lbl">Below 75%</div></div>
-</div>
-{% endif %}
+<div style="display:grid; grid-template-columns: 1fr 1.5fr; gap:24px;">
+    <!-- Left: Session History (Series-wise) -->
+    <div class="card fu fu2">
+        <div class="c-hd">
+            <div class="c-title">Session History</div>
+            <div style="font-size:12px;color:var(--t2)">Recently marked lectures</div>
+        </div>
+        <div style="overflow-x:auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Slot</th>
+                        <th>Present</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sessions %}
+                    <tr id="session-{{ s.subject_id }}-{{ s.date }}">
+                        <td style="font-weight:700; color:var(--brand); font-family:var(--fm);">{{ s.date }}</td>
+                        <td style="font-size:13px;">{{ s.subject_name }}</td>
+                        <td style="font-size:11px; font-weight:700;">{{ s.time_slot or 'AUTO' }}</td>
+                        <td>
+                            <span style="color:var(--green); font-weight:700;">{{ s.present_count }}</span>
+                            <span style="color:var(--t2); font-size:11px;">/ {{ s.total_count }}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm" onclick="deleteSession({{ s.subject_id }}, '{{ s.date }}', '{{ s.time_slot }}')" style="color:var(--red); padding:4px 8px; background:rgba(230,57,70,0.1);">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not sessions %}
+                    <tr><td colspan="5" style="text-align:center; padding:40px; color:var(--t2);">No sessions recorded yet.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-<div class="card fu fu3">
-  <div class="c-hd">
-    <div class="c-title">Student Attendance Summary</div>
-    <div style="font-size:12px;color:var(--t2)">{{ records|length }} student{{ 's' if records|length != 1 }}</div>
-  </div>
-  <div style="overflow-x:auto">
-    <table>
-      <thead>
-        <tr>
-          <th>Student ID</th>
-          <th>Name</th>
-          <th>Subject</th>
-          <th>Present</th>
-          <th>Total</th>
-          <th>Attendance %</th>
-          <th>Grade</th>
-          <th>Progress</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in records %}
-        <tr>
-          <td><span style="font-family:var(--fm);font-size:12px;color:var(--brand)">{{ r.student.student_id }}</span></td>
-          <td style="font-weight:600;color:var(--t0)">{{ r.student.name }}</td>
-          <td style="font-size:12.5px">{{ r.subject.name }}</td>
-          <td style="color:var(--green);font-weight:600">{{ r.present }}</td>
-          <td style="color:var(--t2)">{{ r.total }}</td>
-          <td>
-            <span class="badge {% if r.pct >= 75 %}bag{% elif r.pct >= 60 %}bay{% else %}bar{% endif %}">
-              {{ r.pct }}%
-            </span>
-          </td>
-          <td>
-            <span class="badge {% if r.pct >= 90 %}bag{% elif r.pct >= 75 %}bap{% elif r.pct >= 60 %}bay{% else %}bar{% endif %}">
-              {% if r.pct >= 90 %}A{% elif r.pct >= 75 %}B{% elif r.pct >= 60 %}C{% else %}F{% endif %}
-            </span>
-          </td>
-          <td style="width:100px">
-            <div class="prog"><div class="prog-f {% if r.pct >= 75 %}prog-g{% elif r.pct < 60 %}prog-r{% endif %}" style="width:{{ r.pct }}%"></div></div>
-          </td>
-        </tr>
-        {% endfor %}
-        {% if not records %}
-        <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--t2)">
-          <i class="fas fa-inbox" style="font-size:28px;margin-bottom:12px;display:block"></i>
-          No records found. Try adjusting filters or mark some attendance first.
-        </td></tr>
+    <!-- Right: Student Summary (if subject selected) -->
+    <div class="card fu fu3">
+        <div class="c-hd">
+            <div class="c-title">Student Cumulative Summary</div>
+            <div style="font-size:12px;color:var(--t2)">{% if selected_subject %}Aggregated data for current selection{% else %}Select a subject to see student stats{% endif %}</div>
+        </div>
+        {% if selected_subject %}
+        <div style="overflow-x:auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Roll No</th>
+                        <th>Name</th>
+                        <th>Att. %</th>
+                        <th>Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records %}
+                    <tr>
+                        <td style="font-family:var(--fm); font-size:12px; color:var(--brand)">{{ r.student.student_id }}</td>
+                        <td style="font-weight:600; color:var(--t0)">{{ r.student.name }}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="prog" style="width:60px;"><div class="prog-f {% if r.pct >= 75 %}prog-g{% elif r.pct < 60 %}prog-r{% endif %}" style="width:{{ r.pct }}%"></div></div>
+                                <span style="font-weight:700; font-size:12px;">{{ r.pct }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge {% if r.pct >= 90 %}bag{% elif r.pct >= 75 %}bap{% elif r.pct >= 60 %}bay{% else %}bar{% endif %}">
+                                {% if r.pct >= 90 %}A{% elif r.pct >= 75 %}B{% elif r.pct >= 60 %}C{% else %}F{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:60px; color:var(--t2);">
+            <i class="fas fa-chart-line" style="font-size:32px; opacity:0.2; margin-bottom:12px; display:block;"></i>
+            Filter by <b>Subject</b> to view student performance metrics.
+        </div>
         {% endif %}
-      </tbody>
-    </table>
-  </div>
+    </div>
 </div>
+
+<script>
+async function deleteSession(sid, date, slot) {
+    if(!confirm(`Are you sure you want to delete the attendance for ${date}? This will permanently affect analytics and the dashboard.`)) return;
+    
+    try {
+        const res = await fetch('/teacher/delete-session', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({subject_id: sid, date: date, time_slot: slot})
+        });
+        const data = await res.json();
+        if(data.success) {
+            location.reload();
+        } else {
+            alert('Failed to delete session: ' + data.error);
+        }
+    } catch(err) {
+        console.error(err);
+        alert('An error occurred while deleting.');
+    }
+}
+</script>
+
 {% endblock %}

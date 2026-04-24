@@ -54,9 +54,9 @@
 }
 /* Icon Colors */
 .stat-card:nth-child(1) .stat-icon { background: #F0E6FA; color: var(--primary); }
-.stat-card:nth-child(2) .stat-icon { background: var(--bg1)0E6; color: var(--accent); }
+.stat-card:nth-child(2) .stat-icon { background: #FFF0E6; color: #E1251B; }
 .stat-card:nth-child(3) .stat-icon { background: #E6F0FF; color: #0056B3; }
-.stat-card:nth-child(4) .stat-icon { background: var(--bg1)4E6; color: #E67E22; }
+.stat-card:nth-child(4) .stat-icon { background: #FFF4E6; color: #E67E22; }
 
 .stat-label {
   font-size: 26px;
@@ -376,9 +376,7 @@
             <div class="approval-desc">{{ req.subject.name }} · {{ req.class_ref.full_name }}</div>
           </div>
           <div class="approval-actions">
-            <!-- Simulated actions -->
-            <button class="btn-action-small btn-approve"><i class="fas fa-check"></i></button>
-            <button class="btn-action-small btn-reject"><i class="fas fa-xmark"></i></button>
+            <a href="{{ url_for('admin.approvals') }}" class="btn-action-small btn-approve" title="Review in Approvals"><i class="fas fa-arrow-right"></i></a>
           </div>
         </div>
         {% endfor %}
@@ -394,21 +392,21 @@
   <div class="panel" style="background:transparent; padding:0; box-shadow:none;">
     <div class="panel-title" style="margin-bottom: 16px;">Quick Actions</div>
     <div class="quick-actions">
-      <a href="{{ url_for('admin.classes') }}" class="qa-btn" style="background: var(--primary);">
+      <a href="{{ url_for('admin.classes') }}" class="qa-btn" style="background: #0F204C; color: #fff;">
         <div style="font-size:20px; width:30px; text-align:center;"><i class="fas fa-calendar-plus"></i></div>
         <div>
           <div class="qa-title">Add New Class</div>
           <div class="qa-sub">Configure timetable slots</div>
         </div>
       </a>
-      <a href="{{ url_for('admin.students') }}" class="qa-btn" style="background: #EAE6EF; color: var(--text-main);">
-        <div style="font-size:20px; width:30px; text-align:center; color:var(--primary)"><i class="fas fa-user-plus"></i></div>
+      <a href="{{ url_for('admin.students') }}" class="qa-btn" style="background: #F4F0F8; color: #1A1025;">
+        <div style="font-size:20px; width:30px; text-align:center; color:#5B2D8E;"><i class="fas fa-user-plus"></i></div>
         <div>
-          <div class="qa-title">Manage Students</div>
-          <div class="qa-sub">Update enrollment data</div>
+          <div class="qa-title" style="color:#1A1025;">Manage Students</div>
+          <div class="qa-sub" style="color:#4A3D5C;">Update enrollment data</div>
         </div>
       </a>
-      <a href="{{ url_for('admin.analytics') }}" class="qa-btn" style="background: var(--accent);">
+      <a href="{{ url_for('admin.analytics') }}" class="qa-btn" style="background: #E1251B; color: #fff;">
         <div style="font-size:20px; width:30px; text-align:center;"><i class="fas fa-chart-bar"></i></div>
         <div>
           <div class="qa-title">View Analytics</div>
@@ -444,7 +442,7 @@ function initChart() {
         {
           label: 'Present',
           data: wPresent,
-          backgroundColor: 'var(--brand)',
+          backgroundColor: '#0F204C',
           borderRadius: 4,
           barPercentage: 0.6,
           categoryPercentage: 0.7
@@ -452,7 +450,7 @@ function initChart() {
         {
           label: 'Absent',
           data: wAbsent,
-          backgroundColor: 'var(--accent)',
+          backgroundColor: '#E1251B',
           borderRadius: 4,
           barPercentage: 0.6,
           categoryPercentage: 0.7

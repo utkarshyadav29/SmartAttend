@@ -211,10 +211,7 @@ h2 { font-family: var(--font-heading); font-size: 24px; font-weight: 800; color:
   </div>
   
   <div class="filter-tabs">
-    <div class="filter-tab active">FY</div>
-    <div class="filter-tab">SY</div>
-    <div class="filter-tab">TY</div>
-    <div class="filter-tab">BTech</div>
+    <div class="filter-tab active">All Years</div>
   </div>
 </div>
 
@@ -286,8 +283,7 @@ h2 { font-family: var(--font-heading); font-size: 24px; font-weight: 800; color:
       <div class="v-left">
         <div class="overview-box">
           <div class="ov-title">Selection Overview</div>
-          <div class="ov-row"><span>Total Lectures</span><span class="ov-num">12</span></div>
-          <div class="ov-row"><span>Pending Approvals</span><span class="ov-num orange" id="vmPen">08</span></div>
+          <div class="ov-row"><span>Pending Review</span><span class="ov-num orange" id="vmPen">--</span></div>
           <div class="ov-bar"><div class="ov-fill"></div></div>
         </div>
         <div class="inst-box">
@@ -299,7 +295,7 @@ h2 { font-family: var(--font-heading); font-size: 24px; font-weight: 800; color:
       <!-- Right Interactive Calendar -->
       <div class="v-right">
         <div class="cal-head-ui">
-          <span>October 2024</span>
+          <span id="calMonthLabel">--</span>
           <div class="cal-arrows"><i class="fas fa-chevron-left"></i> <i class="fas fa-chevron-right"></i></div>
         </div>
         <div class="m-grid" id="mGridRender">
@@ -353,27 +349,33 @@ function openReviewModal(reqId, tName, sName, sCode, classDet) {
     grid.removeChild(grid.lastChild);
   }
   
-  // Generate 2 weeks explicitly matching the screenshot design mapping
-  // Week 1
-  grid.innerHTML += `<div class="m-cell"></div>`;
-  grid.innerHTML += `<div class="m-cell">1</div>`;
-  grid.innerHTML += `<div class="m-cell">2</div>`;
-  grid.innerHTML += `<div class="m-cell active-req" data-state="pending">3<div class="act-btns"><button class="abtn abtn-rej" onclick="decideDate(this, 'reject')"><i class="fas fa-xmark"></i></button><button class="abtn abtn-app" onclick="decideDate(this, 'approve')"><i class="fas fa-check"></i></button></div></div>`;
-  grid.innerHTML += `<div class="m-cell">4</div>`;
-  grid.innerHTML += `<div class="m-cell">5</div>`;
-  grid.innerHTML += `<div class="m-cell">6</div>`;
+  // Generate dynamic calendar for the current month
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = monthNames[month] + ' ' + year;
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
   
-  // Week 2
-  grid.innerHTML += `<div class="m-cell">7</div>`;
-  grid.innerHTML += `<div class="m-cell active-req" data-state="pending">8<div class="act-btns"><button class="abtn abtn-rej" onclick="decideDate(this, 'reject')"><i class="fas fa-xmark"></i></button><button class="abtn abtn-app" onclick="decideDate(this, 'approve')"><i class="fas fa-check"></i></button></div></div>`;
-  grid.innerHTML += `<div class="m-cell">9</div>`;
-  grid.innerHTML += `<div class="m-cell">10</div>`;
-  grid.innerHTML += `<div class="m-cell active-req" data-state="pending">11<div class="act-btns"><button class="abtn abtn-rej" onclick="decideDate(this, 'reject')"><i class="fas fa-xmark"></i></button><button class="abtn abtn-app" onclick="decideDate(this, 'approve')"><i class="fas fa-check"></i></button></div></div>`;
-  grid.innerHTML += `<div class="m-cell">12</div>`;
-  grid.innerHTML += `<div class="m-cell">13</div>`;
+  // Pick a few sample active dates (spread across the month)
+  const activeDays = [];
+  for (let d = 3; d <= daysInMonth; d += 5) activeDays.push(d);
   
-  // Empty Row
-  for(let i=0; i<7; i++) grid.innerHTML += `<div class="m-cell"></div>`;
+  let calHtml = '';
+  for (let i = 0; i < firstDow; i++) calHtml += '<div class="m-cell"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (activeDays.includes(d)) {
+      calHtml += `<div class="m-cell active-req" data-state="pending">${d}<div class="act-btns"><button class="abtn abtn-rej" onclick="decideDate(this, 'reject')"><i class="fas fa-xmark"></i></button><button class="abtn abtn-app" onclick="decideDate(this, 'approve')"><i class="fas fa-check"></i></button></div></div>`;
+    } else {
+      calHtml += `<div class="m-cell">${d}</div>`;
+    }
+  }
+  const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+  for (let i = firstDow + daysInMonth; i < totalCells; i++) calHtml += '<div class="m-cell"></div>';
+  grid.innerHTML += calHtml;
+  
+  document.getElementById('vmPen').textContent = activeDays.length.toString().padStart(2, '0');
 
   resetCalOpts();
   toggleModal();
@@ -400,7 +402,7 @@ function decideDate(btn, action) {
 }
 
 function resetCalOpts() {
-  document.getElementById('vmPen').innerText = '08';
+  document.getElementById('vmPen').innerText = document.querySelectorAll('.active-req').length.toString().padStart(2, '0');
   document.querySelectorAll('.active-req').forEach(el => {
     el.classList.remove('decided');
     el.style.background = '';
@@ -417,7 +419,6 @@ function processApproval() {
   if(form) {
       form.submit();
   } else {
-      alert("Verification actions logged securely in local buffer. (Mock Data Submission Successful)");
       toggleModal();
   }
 }

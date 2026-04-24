@@ -92,21 +92,13 @@ body { background: var(--bg0) !important; }
       <select class="input-field" id="sDept" {% if not is_approved %}disabled{% endif %}>
         <option value="" disabled selected>Select Department</option>
         {% if departments and departments|length > 0 %}
+          {% set year_labels = {1: 'FY', 2: 'SY', 3: 'TY', 4: 'BTech'} %}
           {% for d in departments %}
-          <option value="{{ d.name }}">{{ d.name }}</option>
+          <option value="{{ d.name }}" data-year="{{ {1:'First Year', 2:'Second Year', 3:'Third Year', 4:'BTech'}[d.year] or 'First Year' }}">{{ d.name }} ({{ year_labels[d.year] or 'FY' }})</option>
           {% endfor %}
         {% else %}
           <option disabled>No departments added by admin yet</option>
         {% endif %}
-      </select>
-    </div>
-    <div class="input-group">
-      <label class="input-label">Year</label>
-      <select class="input-field" id="sYear" {% if not is_approved %}disabled{% endif %}>
-        <option>First Year</option>
-        <option>Second Year</option>
-        <option>Third Year</option>
-        <option>BTech</option>
       </select>
     </div>
     <div class="input-group">
@@ -135,6 +127,12 @@ body { background: var(--bg0) !important; }
   </div>
   
   <div class="cal-wrapper">
+    <!-- Month Navigation -->
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 24px; background:var(--bg2); border-bottom:1px solid var(--b0);">
+      <button type="button" onclick="changeMonth(-1)" style="border:none; background:var(--bg1); width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:16px; color:var(--brand); display:flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.background='var(--brand)';this.style.color='#fff'" onmouseout="this.style.background='var(--bg1)';this.style.color='var(--brand)'"><i class="fas fa-chevron-left"></i></button>
+      <div id="calMonthLabel" style="font-family:var(--font-heading); font-size:18px; font-weight:800; color:var(--brand-l);"></div>
+      <button type="button" onclick="changeMonth(1)" style="border:none; background:var(--bg1); width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:16px; color:var(--brand); display:flex; align-items:center; justify-content:center; transition:all 0.15s;" onmouseover="this.style.background='var(--brand)';this.style.color='#fff'" onmouseout="this.style.background='var(--bg1)';this.style.color='var(--brand)'"><i class="fas fa-chevron-right"></i></button>
+    </div>
     <div class="cal-header-row">
       <div class="cal-header-cell">MON</div><div class="cal-header-cell">TUE</div><div class="cal-header-cell">WED</div>
       <div class="cal-header-cell">THU</div><div class="cal-header-cell">FRI</div>
@@ -176,7 +174,7 @@ body { background: var(--bg0) !important; }
 // --- STATE MANAGEMENT ---
 let selectedDates = [];
 
-const mockTimePills = [
+const timeSlots = [
     { label: "09:15 - 10:15", type: "slot" },
     { label: "10:15 - 11:15", type: "slot" },
     { label: "(15 min break)", type: "break" },
@@ -228,36 +226,63 @@ function unlockStep3() {
     document.getElementById('step3').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Calendar state
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function changeMonth(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+}
+
 function renderCalendar() {
     const grid = document.getElementById('calendarGrid');
     grid.innerHTML = "";
     
-    let paddedStart = [28, 29, 30]; 
-    let monthDays = 31;
-    let paddedEnd = [1];
+    const year = calYear;
+    const month = calMonth;
     
-    let totalCells = 35; 
+    // Update month label
+    document.getElementById('calMonthLabel').textContent = `${monthNames[month]} ${year}`;
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const monthDays = lastDay.getDate();
+    
+    // Monday-based start: Mon=0, Sun=6
+    let startDay = (firstDay.getDay() + 6) % 7;
+    const prevMonthLast = new Date(year, month, 0).getDate();
+    
+    const totalCells = Math.ceil((startDay + monthDays) / 7) * 7;
     let currentHtml = "";
-    let datePointer = 0;
     
-    for(let i=0; i<totalCells; i++) {
+    for(let i = 0; i < totalCells; i++) {
         let isFaded = false;
         let dayNum = 0;
         
-        if (i < paddedStart.length) {
-            dayNum = paddedStart[i];
+        if (i < startDay) {
+            dayNum = prevMonthLast - startDay + 1 + i;
             isFaded = true;
-        } else if (i < paddedStart.length + monthDays) {
-            dayNum = i - paddedStart.length + 1;
+        } else if (i < startDay + monthDays) {
+            dayNum = i - startDay + 1;
         } else {
-            dayNum = paddedEnd[datePointer++];
+            dayNum = i - startDay - monthDays + 1;
             isFaded = true;
         }
         
-        let isoDateStr = `2023-10-${dayNum.toString().padStart(2, '0')}`;
+        let isoDateStr = '';
+        if (!isFaded) {
+            isoDateStr = `${year}-${(month+1).toString().padStart(2,'0')}-${dayNum.toString().padStart(2, '0')}`;
+        }
+        
+        // Check if this date was already selected
+        const isSelected = !isFaded && selectedDates.some(d => d.iso === isoDateStr);
         
         currentHtml += `
-            <div class="cal-cell" ${!isFaded ? `onclick="toggleDate(this, '${isoDateStr}', ${dayNum})"` : ''}>
+            <div class="cal-cell${isSelected ? ' selected' : ''}" ${!isFaded ? `onclick="toggleDate(this, '${isoDateStr}', ${dayNum})"` : ''}>
                 <div class="cal-date ${isFaded ? 'faded' : ''}">${dayNum}</div>
                 ${!isFaded ? `<div class="cal-interaction"></div>` : ''}
             </div>
@@ -277,7 +302,7 @@ function toggleDate(element, isoString, dayNumber) {
         const dayName = days[gridIndex % 7];
         selectedDates.push({ iso: isoString, day: dayNumber, dayName: dayName, original: true });
     }
-    selectedDates.sort((a,b) => a.day - b.day);
+    selectedDates.sort((a,b) => a.iso.localeCompare(b.iso));
 }
 
 function setRecurring() {
@@ -287,10 +312,13 @@ function setRecurring() {
     }
     let newDates = [];
     selectedDates.forEach(d => {
-        if(d.original && d.day + 7 <= 31) {
-            let nextDay = d.day + 7;
-            let nextIso = `2023-10-${nextDay.toString().padStart(2, '0')}`;
-            if(!selectedDates.some(existing => existing.day === nextDay)) {
+        if(d.original) {
+            const curDate = new Date(d.iso);
+            const nextDate = new Date(curDate);
+            nextDate.setDate(curDate.getDate() + 7);
+            const nextDay = nextDate.getDate();
+            const nextIso = `${nextDate.getFullYear()}-${(nextDate.getMonth()+1).toString().padStart(2,'0')}-${nextDay.toString().padStart(2,'0')}`;
+            if(!selectedDates.some(existing => existing.iso === nextIso) && !newDates.some(n => n.iso === nextIso)) {
                 newDates.push({ iso: nextIso, day: nextDay, dayName: d.dayName, original: false });
             }
         }
@@ -298,18 +326,10 @@ function setRecurring() {
 
     if(newDates.length > 0) {
         selectedDates = selectedDates.concat(newDates);
-        selectedDates.sort((a,b) => a.day - b.day);
+        selectedDates.sort((a,b) => a.iso.localeCompare(b.iso));
         
-        // Visually update the calendar
-        let cells = document.querySelectorAll('.cal-cell');
-        cells.forEach(cell => {
-            let numText = cell.querySelector('.cal-date').innerText;
-            newDates.forEach(nd => {
-                if(nd.day.toString() === numText && !cell.querySelector('.cal-date').classList.contains('faded')) {
-                    cell.classList.add('selected');
-                }
-            });
-        });
+        // Re-render calendar to visually highlight new selections
+        renderCalendar();
         showToast("Schedule repeated for next week!");
     } else {
         showToast("Could not recur. Dates out of month bounds.", true);
@@ -322,7 +342,7 @@ function generateTimeSlotsUI() {
     
     selectedDates.forEach(dateObj => {
         let pillsHtml = "";
-        mockTimePills.forEach((pill, idx) => {
+        timeSlots.forEach((pill, idx) => {
             if(pill.type === "slot") {
                 pillsHtml += `<button type="button" class="pill-time" onclick="togglePill(this)">${pill.label}</button>`;
             } else {
@@ -333,7 +353,7 @@ function generateTimeSlotsUI() {
         const cardHtml = `
             <div class="slot-row" data-date="${dateObj.iso}">
                 <div class="slot-date-info">
-                    <div class="slot-date-primary">Oct ${dateObj.day.toString().padStart(2, '0')}, 2023</div>
+                    <div class="slot-date-primary">${new Date(dateObj.iso).toLocaleDateString('en-US', {month:'short', day:'2-digit', year:'numeric'})}</div>
                     <div class="slot-date-sub">${dateObj.dayName}</div>
                 </div>
                 <div class="slot-pills">
@@ -356,8 +376,9 @@ function togglePill(pillBtn) {
 function submitFinal() {
     const sName = document.getElementById('sName').value;
     const sCode = document.getElementById('sCode').value;
-    const sDept = document.getElementById('sDept').value;
-    const sYear = document.getElementById('sYear').value;
+    const sDeptEl = document.getElementById('sDept');
+    const sDept = sDeptEl.value;
+    const sYear = sDeptEl.options[sDeptEl.selectedIndex]?.getAttribute('data-year') || 'First Year';
     const sDiv = document.getElementById('sDiv').value;
     
     if(!sName || !sCode) {

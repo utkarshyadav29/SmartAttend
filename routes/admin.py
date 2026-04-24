@@ -217,16 +217,18 @@ def approvals():
 def add_department():
     name = request.form.get('dept_name', '').strip()
     code = request.form.get('dept_code', '').strip().upper()
+    year = int(request.form.get('dept_year', 1))
     if not name or not code:
         flash('Department name and code are required.', 'error')
         return redirect(url_for('admin.staff_log'))
-    if Department.query.filter_by(name=name).first():
-        flash(f'Department "{name}" already exists.', 'warning')
+    if Department.query.filter_by(name=name, year=year).first():
+        flash(f'Department "{name}" for that year already exists.', 'warning')
         return redirect(url_for('admin.staff_log'))
-    dept = Department(name=name, code=code)
+    dept = Department(name=name, code=code, year=year)
     db.session.add(dept)
     db.session.commit()
-    flash(f'Department "{name}" created successfully.', 'success')
+    year_labels = {1: 'First Year', 2: 'Second Year', 3: 'Third Year', 4: 'BTech/Final Year'}
+    flash(f'Department "{name}" ({year_labels.get(year, "")}) created successfully.', 'success')
     return redirect(url_for('admin.staff_log'))
 
 @admin_bp.route('/students', methods=['GET', 'POST'])
@@ -436,17 +438,32 @@ def staff_log():
     
     dept_stats = []
     for d in departments:
-        cls_count = Class.query.filter_by(department_id=d.id).count()
+        cls_list = Class.query.filter_by(department_id=d.id).all()
+        cls_count = len(cls_list)
         stu_count = Student.query.join(Class).filter(Class.department_id==d.id).count()
+        # Gather all subjects under this department
+        dept_subjects = []
+        for c in cls_list:
+            for s in c.subjects:
+                if s.name not in [ds['name'] for ds in dept_subjects]:
+                    dept_subjects.append({'name': s.name, 'code': s.code})
         dept_stats.append({
             'id': d.id,
             'code': d.code,
             'name': d.name,
+            'year': d.year or 1,
             'classes': cls_count,
-            'students': stu_count
+            'students': stu_count,
+            'subjects': dept_subjects
         })
 
-    return render_template('admin/staff_log.html', teachers=teachers, dept_stats=dept_stats)
+    # Group by year for display
+    year_labels = {1: 'First Year', 2: 'Second Year', 3: 'Third Year', 4: 'BTech / Final Year'}
+    dept_by_year = {}
+    for yr in [1, 2, 3, 4]:
+        dept_by_year[yr] = {'label': year_labels[yr], 'depts': [d for d in dept_stats if d['year'] == yr]}
+
+    return render_template('admin/staff_log.html', teachers=teachers, dept_stats=dept_stats, dept_by_year=dept_by_year)
 
 @admin_bp.route('/get_divisions/<int:dept_id>')
 @login_required
@@ -454,3 +471,56 @@ def staff_log():
 def get_divisions(dept_id):
     classes = Class.query.filter_by(department_id=dept_id).all()
     return jsonify([{'id': c.id, 'section': c.section} for c in classes])
+
+@admin_bp.route('/get_subjects/<int:class_id>')
+@login_required
+@admin_required
+def get_subjects(class_id):
+    subjects = Subject.query.filter_by(class_id=class_id).all()
+    return jsonify([{'id': s.id, 'name': s.name, 'code': s.code} for s in subjects])
+
+@admin_bp.route('/get_students/<int:class_id>/<int:subject_id>')
+@login_required
+@admin_required
+def get_students_data(class_id, subject_id):
+    students = Student.query.filter_by(class_id=class_id).order_by(Student.student_id).all()
+    result = []
+    for s in students:
+        total = AttendanceRecord.query.filter_by(student_id=s.id, subject_id=subject_id).count()
+        present = AttendanceRecord.query.filter_by(student_id=s.id, subject_id=subject_id, status='present').count()
+        pct = round((present / total * 100) if total else 0, 1)
+        result.append({
+            'student_id': s.student_id,
+            'roll': s.roll_number or '-',
+            'name': s.name,
+            'email': s.email or '-',
+            'present': present,
+            'absent': total - present,
+            'total': total,
+            'pct': pct
+        })
+    return jsonify(result)
+
+@admin_bp.route('/export_students/<int:class_id>/<int:subject_id>')
+@login_required
+@admin_required
+def export_division_students(class_id, subject_id):
+    from flask import send_file
+    subject = Subject.query.get_or_404(subject_id)
+    cls = Class.query.get_or_404(class_id)
+    students = Student.query.filter_by(class_id=class_id).order_by(Student.student_id).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Student ID', 'Roll No', 'Name', 'Email', 'Present', 'Absent', 'Total', 'Attendance %'])
+    for s in students:
+        total = AttendanceRecord.query.filter_by(student_id=s.id, subject_id=subject_id).count()
+        present = AttendanceRecord.query.filter_by(student_id=s.id, subject_id=subject_id, status='present').count()
+        pct = round((present / total * 100) if total else 0, 1)
+        writer.writerow([s.student_id, s.roll_number or '', s.name, s.email or '', present, total - present, total, f'{pct}%'])
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode()),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'{cls.section}_{subject.name}_students.csv'
+    )

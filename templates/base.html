@@ -236,7 +236,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);c
     <div class="topbar-right">
       <button class="icon-btn" onclick="togglePopup('notifPopup')">
         <i class="fas fa-bell"></i>
-        <div class="badge-dot"></div>
       </button>
       <button class="icon-btn" onclick="toggleTheme()"><i class="fas fa-moon" id="theme-icon"></i></button>
       
@@ -246,7 +245,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);c
           <div class="tb-name">{{ current_user.name[:12] }}...</div>
         </div>
         <div class="tb-avatar">
-          <img src="https://i.pravatar.cc/150?img=11" alt="Avatar" style="width:100%; border-radius:50%;">
+          {{ current_user.name[:1]|upper }}
         </div>
       </div>
     </div>
@@ -254,31 +253,12 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,45,142,.04);c
     <!-- Notification Popup -->
     <div class="notif-popup" id="notifPopup">
       <div class="n-head">
-        <div class="n-title">Recent Notifications</div>
-        <div class="n-badge-pill">3 New</div>
+        <div class="n-title">Notifications</div>
       </div>
-      <div class="n-item">
-        <div class="n-dot"></div>
-        <div>
-          <div class="n-text">Leave request from Julian</div>
-          <div class="n-time">2 mins ago • TY AIML</div>
-        </div>
+      <div style="text-align:center; padding:24px 0; color:var(--t2); font-size:13px;">
+        <i class="fas fa-bell-slash" style="font-size:20px; display:block; margin-bottom:8px; opacity:0.3;"></i>
+        No new notifications
       </div>
-      <div class="n-item">
-        <div class="n-dot purple"></div>
-        <div>
-          <div class="n-text">Faculty meeting at 4 PM</div>
-          <div class="n-time">15 mins ago • Boardroom</div>
-        </div>
-      </div>
-      <div class="n-item">
-        <div class="n-dot blue"></div>
-        <div>
-          <div class="n-text">AI Report generated</div>
-          <div class="n-time">1 hour ago • Monthly Review</div>
-        </div>
-      </div>
-      <button class="n-btn">View All Notifications</button>
     </div>
   </header>
   {% endif %}

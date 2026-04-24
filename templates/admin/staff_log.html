@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Staff Directory — SmartAttend{% endblock %}
+{% block title %}Staff Directory â€” SmartAttend{% endblock %}
 
 {% block head %}
 <style>
@@ -120,44 +120,51 @@
 {% block content %}
 <div class="staff-hero fu">
   <div class="hero-title">Classes</div>
-  <div class="acad-pill">Academic Year 2023-24</div>
+  <div class="acad-pill" id="acadYearPill">Academic Year</div>
 </div>
+<script>
+(function(){
+  const now = new Date();
+  const y = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+  document.getElementById('acadYearPill').textContent = 'Academic Year ' + y + '-' + String(y+1).slice(2);
+})();
+</script>
 
-{% if dept_stats|length > 0 %}
+{% for yr_key in [1, 2, 3, 4] %}
+  {% set yr_data = dept_by_year[yr_key] %}
   <div class="year-section fu">
     <div class="year-title">
-      <span class="year-title-span">Active Departments</span>
-      <button class="btn-add-dept" onclick="alert('Module to be implemented')"><i class="fas fa-plus"></i> Add Dept</button>
+      <span class="year-title-span">{{ yr_data.label }}</span>
     </div>
     <div class="dept-grid">
-      {% for d in dept_stats %}
-      <div class="dept-card" onclick="openDeptModal('{{ d.name }}', '{{ d.code }}', '{{ d.id }}')">
-        <form action="{{ url_for('admin.delete_department', id=d.id) }}" method="POST" onsubmit="return confirm('Delete this department and all associated records?')">
-          <button type="submit" class="btn-card-del" onclick="event.stopPropagation()"><i class="fas fa-trash-can"></i></button>
-        </form>
-        <div class="dept-code">{{ d.code }}</div>
-        <div class="dept-name">{{ d.name }}</div>
-        <div class="dept-meta">{{ d.classes }} Divisions • {{ d.students }} Students</div>
-        <i class="fas fa-building dept-bg-icon"></i>
-      </div>
-      {% endfor %}
+      {% if yr_data.depts|length > 0 %}
+        {% for d in yr_data.depts %}
+        <div class="dept-card" onclick="openDeptModal('{{ d.name }}', '{{ d.code }}', '{{ d.id }}')">
+          <form action="{{ url_for('admin.delete_department', id=d.id) }}" method="POST" onsubmit="return confirm('Delete this department and all associated records?')">
+            <button type="submit" class="btn-card-del" onclick="event.stopPropagation()"><i class="fas fa-trash-can"></i></button>
+          </form>
+          <div class="dept-code">{{ d.code }}</div>
+          <div class="dept-name">{{ d.name }}</div>
+          <div class="dept-meta">{{ d.classes }} Divisions &bull; {{ d.students }} Students</div>
+          {% if d.subjects %}
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+            {% for s in d.subjects %}
+            <span style="background:rgba(91,45,142,0.1); color:var(--brand); font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px;">{{ s.name }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <i class="fas fa-building dept-bg-icon"></i>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="dept-card" style="border:1px dashed #DDD; box-shadow:none; text-align:center; padding: 36px; grid-column: 1 / -1; cursor:default; opacity:0.6;" onclick="">
+          <div style="font-size:20px; color:#CCC; margin-bottom:6px;"><i class="fas fa-folder-open"></i></div>
+          <div class="dept-meta">No departments in {{ yr_data.label }}. Click "Add Department" to create one.</div>
+        </div>
+      {% endif %}
     </div>
   </div>
-{% else %}
-  <div class="year-section fu">
-    <div class="year-title">
-      <span class="year-title-span">Active Departments</span>
-      <button class="btn-add-dept" onclick="alert('Module to be implemented')"><i class="fas fa-plus"></i> Add Dept</button>
-    </div>
-    <div class="dept-grid">
-      <div class="dept-card" style="border:1px dashed #DDD; box-shadow:none; text-align:center; padding: 48px; grid-column: 1 / -1; cursor:default;" onclick="">
-        <div style="font-size:32px; color:#CCC; margin-bottom:12px;"><i class="fas fa-folder-open"></i></div>
-        <div class="dept-name" style="color:#888;">No Departments Yet</div>
-        <div class="dept-meta">Departments and subjects will appear here once teachers register them.</div>
-      </div>
-    </div>
-  </div>
-{% endif %}
+{% endfor %}
 
 <div class="fac-header fu fu3">
   <div class="fac-title">Faculty Directory</div>
@@ -202,12 +209,12 @@
 
 <!-- Dynamic Overlay -->
 <div class="modal-overlay" id="deptModalOverlay">
-  <div class="large-modal" onclick="event.stopPropagation()">
+  <div class="large-modal" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto;">
     <div class="lmodal-header">
       <button class="lmodal-close" onclick="closeDeptModal()"><i class="fas fa-times"></i></button>
       <div class="lmodal-tag">DEPARTMENT VIEW</div>
-      <div class="lmodal-title" id="mdlDeptTitle">Computer Science</div>
-      <div class="lmodal-sub">Configure class details and records</div>
+      <div class="lmodal-title" id="mdlDeptTitle">Department</div>
+      <div class="lmodal-sub">Manage divisions, subjects & student records</div>
     </div>
     <div class="lmodal-body">
       <div class="lm-label">
@@ -226,21 +233,60 @@
         </form>
       </div>
 
-      <div id="divList" style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px;">
-        <!-- Real divisions injected here -->
+      <!-- Division Radio Buttons -->
+      <div id="divRadios" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px;"></div>
+
+      <!-- Subject Dropdown -->
+      <div id="subjectSection" style="display:none; margin-bottom:20px;">
+        <div class="lm-label"><span>SELECT SUBJECT</span></div>
+        <select id="subjectDropdown" class="fc" style="width:100%; margin-bottom:8px;" onchange="loadStudentData()">
+          <option value="">Choose a subject...</option>
+        </select>
       </div>
-      
-      <div class="import-box">
-        <form method="POST" action="{{ url_for('admin.import_students') }}" enctype="multipart/form-data" id="importForm">
-          <input type="hidden" name="dept_name" id="importDeptName">
-          <div class="ib-icon"><i class="fas fa-file-upload"></i></div>
-          <div class="ib-title">Batch Import Students</div>
-          <div class="ib-sub">Upload a CSV or Excel (.xlsx) file with columns: <strong>student_id, name, email</strong></div>
-          <input type="file" name="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display:none;" onchange="this.form.submit()">
-          <button type="button" class="btn-orange" onclick="document.getElementById('csvFileInput').click()">
-            <i class="fas fa-upload" style="margin-right:6px;"></i> Import CSV / Excel
-          </button>
-        </form>
+
+      <!-- Student Data Table -->
+      <div id="studentTableSection" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div class="lm-label" style="margin:0;"><span>STUDENT RECORDS</span> <span id="studentCount" style="color:var(--t2);font-weight:400;"></span></div>
+          <div id="exportBtnWrap" style="display:none;">
+            <a id="exportCsvBtn" href="#" class="btn bp" style="padding:8px 16px; font-size:12px; border-radius:8px; text-decoration:none;">
+              <i class="fas fa-download" style="margin-right:4px;"></i> Export CSV
+            </a>
+          </div>
+        </div>
+        <div style="overflow-x:auto; border-radius:12px; border:1px solid var(--b0);">
+          <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:var(--bg2); text-align:left;">
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">#</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Student ID</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Roll</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Name</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Present</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Absent</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">Total</th>
+                <th style="padding:10px 14px; font-size:11px; font-weight:700; color:var(--t1); text-transform:uppercase;">%</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Import section (shown only when no students) -->
+      <div id="importSection" style="display:none;">
+        <div class="import-box">
+          <form method="POST" action="{{ url_for('admin.import_students') }}" enctype="multipart/form-data" id="importForm">
+            <input type="hidden" name="dept_name" id="importDeptName">
+            <div class="ib-icon"><i class="fas fa-file-upload"></i></div>
+            <div class="ib-title">No Student Data Found</div>
+            <div class="ib-sub">Upload a CSV or Excel file with columns: <strong>student_id, name, email</strong></div>
+            <input type="file" name="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display:none;" onchange="this.form.submit()">
+            <button type="button" class="btn-orange" onclick="document.getElementById('csvFileInput').click()">
+              <i class="fas fa-upload" style="margin-right:6px;"></i> Import CSV / Excel
+            </button>
+          </form>
+        </div>
       </div>
     </div>
     <div class="engine-status"><span class="dot-eng"></span> SMARTSYNC ENGINE ACTIVE</div>
@@ -250,7 +296,7 @@
   </div>
 </div>
 
-<!-- Old teacher add modal for full structural integrity of routes -->
+<!-- Teacher add modal -->
 <div class="mbg" id="modal-add-teacher">
   <div class="modal" style="border-radius:18px;">
     <div class="m-title" style="font-family:var(--font-heading)">Add Faculty Account <button onclick="closeModal('modal-add-teacher')" class="bico" style="width:28px;height:28px;font-size:11px"><i class="fas fa-xmark"></i></button></div>
@@ -283,11 +329,20 @@
       <div class="lmodal-body" style="padding:26px;">
         <div style="margin-bottom:20px;">
           <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Department Name</label>
-          <input name="dept_name" class="lm-select" placeholder="e.g. Computer Engineering" required style="margin-bottom:0;">
+          <input name="dept_name" class="lm-select" placeholder="e.g. Artificial Intelligence & Machine Learning" required style="margin-bottom:0;">
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Short Code</label>
+          <input name="dept_code" class="lm-select" placeholder="e.g. AIML" maxlength="10" required style="margin-bottom:0;text-transform:uppercase;">
         </div>
         <div>
-          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Short Code</label>
-          <input name="dept_code" class="lm-select" placeholder="e.g. CE" maxlength="10" required style="margin-bottom:0;text-transform:uppercase;">
+          <label style="font-family:var(--font-heading);font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;display:block;margin-bottom:8px;">Academic Year</label>
+          <select name="dept_year" class="lm-select" required style="margin-bottom:0; width:100%; padding:12px 16px; border:1px solid var(--b0); border-radius:10px; font-family:var(--font-body); font-size:14px; background:var(--bg0); color:var(--t0);">
+            <option value="1">First Year (FY)</option>
+            <option value="2" selected>Second Year (SY)</option>
+            <option value="3">Third Year (TY)</option>
+            <option value="4">BTech / Final Year</option>
+          </select>
         </div>
       </div>
       <div class="lmodal-footer" style="display:flex;justify-content:flex-end;padding:0 26px 26px 26px;gap:12px;">
@@ -302,43 +357,113 @@
 
 {% block scripts %}
 <script>
+let currentDeptId = null;
+let currentClassId = null;
+
 function openDeptModal(deptName, tagText, deptId) {
+  currentDeptId = deptId;
   document.getElementById('mdlDeptTitle').innerText = deptName;
   document.getElementById('mdlDeptId').value = deptId;
   document.getElementById('importDeptName').value = deptName;
   
-  // Fetch real divisions
+  // Reset state
+  document.getElementById('subjectSection').style.display = 'none';
+  document.getElementById('studentTableSection').style.display = 'none';
+  document.getElementById('importSection').style.display = 'none';
+  document.getElementById('exportBtnWrap').style.display = 'none';
+  
+  // Fetch divisions and render as radio buttons
   fetch(`/admin/get_divisions/${deptId}`)
     .then(r => r.json())
     .then(data => {
-      const list = document.getElementById('divList');
+      const container = document.getElementById('divRadios');
       if(data.length === 0) {
-        list.innerHTML = '<div style="font-size:13px; color:var(--t2); text-align:center; padding:12px;">No divisions created yet.</div>';
+        container.innerHTML = '<div style="font-size:13px; color:var(--t2); text-align:center; padding:12px; width:100%;">No divisions created yet. Click "Create Division" above.</div>';
       } else {
-        list.innerHTML = data.map(d => `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg2); padding:12px 16px; border-radius:10px; border:1px solid var(--b0);">
-            <span style="font-weight:600; font-size:14px; color:var(--t0);">${deptName} - ${d.section}</span>
-            <form action="/admin/delete_class/${d.id}" method="POST" onsubmit="return confirm('Delete this division?')">
-              <button type="submit" style="background:transparent; border:none; color:#D32F2F; cursor:pointer;"><i class="fas fa-trash-can"></i></button>
+        container.innerHTML = data.map(d => `
+          <label style="display:flex; align-items:center; gap:8px; padding:10px 18px; border-radius:10px; border:1px solid var(--b0); background:var(--bg0); cursor:pointer; font-weight:600; font-size:13px; color:var(--t0); transition:all 0.15s;">
+            <input type="radio" name="divRadio" value="${d.id}" 
+                   onchange="selectDivision(${d.id})"
+                   style="accent-color:var(--brand); width:16px; height:16px;">
+            <span>${deptName} - ${d.section}</span>
+            <form action="/admin/delete_class/${d.id}" method="POST" onsubmit="return confirm('Delete this division and all its students?')" style="margin-left:auto;">
+              <button type="submit" onclick="event.stopPropagation()" style="background:transparent; border:none; color:#D32F2F; cursor:pointer; font-size:12px;"><i class="fas fa-trash-can"></i></button>
             </form>
-          </div>
+          </label>
         `).join('');
       }
     });
 
   document.getElementById('deptModalOverlay').classList.add('active');
 }
+
+function selectDivision(classId) {
+  currentClassId = classId;
+  // Highlight selected radio
+  document.querySelectorAll('#divRadios label').forEach(l => l.style.borderColor = 'var(--b0)');
+  const checked = document.querySelector(`input[name="divRadio"][value="${classId}"]`);
+  if(checked) checked.closest('label').style.borderColor = 'var(--brand)';
+  
+  // Show subject dropdown
+  document.getElementById('subjectSection').style.display = 'block';
+  document.getElementById('studentTableSection').style.display = 'none';
+  document.getElementById('importSection').style.display = 'none';
+  
+  fetch(`/admin/get_subjects/${classId}`)
+    .then(r => r.json())
+    .then(subjects => {
+      const dd = document.getElementById('subjectDropdown');
+      dd.innerHTML = '<option value="">Choose a subject...</option>';
+      subjects.forEach(s => {
+        dd.innerHTML += `<option value="${s.id}">${s.name}${s.code ? ' (' + s.code + ')' : ''}</option>`;
+      });
+      if(subjects.length === 0) {
+        dd.innerHTML = '<option value="" disabled>No subjects registered for this division</option>';
+      }
+    });
+}
+
+function loadStudentData() {
+  const subjectId = document.getElementById('subjectDropdown').value;
+  if(!subjectId || !currentClassId) return;
+  
+  fetch(`/admin/get_students/${currentClassId}/${subjectId}`)
+    .then(r => r.json())
+    .then(students => {
+      if(students.length === 0) {
+        document.getElementById('studentTableSection').style.display = 'none';
+        document.getElementById('importSection').style.display = 'block';
+      } else {
+        document.getElementById('importSection').style.display = 'none';
+        document.getElementById('studentTableSection').style.display = 'block';
+        document.getElementById('exportBtnWrap').style.display = 'block';
+        document.getElementById('exportCsvBtn').href = `/admin/export_students/${currentClassId}/${subjectId}`;
+        document.getElementById('studentCount').textContent = `(${students.length} students)`;
+        
+        const tbody = document.getElementById('studentTableBody');
+        tbody.innerHTML = students.map((s, i) => {
+          const pctColor = s.pct >= 75 ? '#2DA84F' : s.pct >= 60 ? '#E67E22' : '#E1251B';
+          return `<tr style="border-bottom:1px solid var(--b0);">
+            <td style="padding:10px 14px; color:var(--t2); font-size:12px;">${i+1}</td>
+            <td style="padding:10px 14px; font-family:var(--font-mono); font-size:12px; color:var(--brand); font-weight:700;">${s.student_id}</td>
+            <td style="padding:10px 14px; font-size:12px; color:var(--t1);">${s.roll}</td>
+            <td style="padding:10px 14px; font-weight:600; color:var(--t0);">${s.name}</td>
+            <td style="padding:10px 14px; color:#2DA84F; font-weight:600;">${s.present}</td>
+            <td style="padding:10px 14px; color:#E1251B; font-weight:600;">${s.absent}</td>
+            <td style="padding:10px 14px; color:var(--t2);">${s.total}</td>
+            <td style="padding:10px 14px; font-weight:700; color:${pctColor};">${s.pct}%</td>
+          </tr>`;
+        }).join('');
+      }
+    });
+}
+
 function closeDeptModal() {
   document.getElementById('deptModalOverlay').classList.remove('active');
   hideAddDivForm();
 }
-
-function showAddDivForm() {
-  document.getElementById('addDivForm').style.display = 'block';
-}
-function hideAddDivForm() {
-  document.getElementById('addDivForm').style.display = 'none';
-}
+function showAddDivForm() { document.getElementById('addDivForm').style.display = 'block'; }
+function hideAddDivForm() { document.getElementById('addDivForm').style.display = 'none'; }
 
 function openAddDeptModal() {
   const overlay = document.getElementById('addDeptModalOverlay');
@@ -353,7 +478,6 @@ function closeAddDeptModal() {
   overlay.querySelector('.large-modal').style.transform = 'translateY(20px)';
 }
 
-// Close modals on backdrop click
 document.getElementById('deptModalOverlay').addEventListener('click', function(e) {
   if(e.target === this) closeDeptModal();
 });
@@ -362,4 +486,3 @@ document.getElementById('addDeptModalOverlay').addEventListener('click', functio
 });
 </script>
 {% endblock %}
-
